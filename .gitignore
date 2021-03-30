@@ -1,3 +1,15 @@
 */build
 */*.wts
 */*.ppm
+*/.mypy_cache
+.vscode
+*.pyc
+
+yolov5/data
+yolov5/build
+yolov5/release
+yolov5/release_32
+*.DS_Store
+*.jpg
+**/weights/*
+yolov5/src/v4.0/build/*

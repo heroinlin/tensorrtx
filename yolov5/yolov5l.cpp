@@ -4,8 +4,8 @@
 #include "logging.h"
 #include "common.hpp"
 
-#define USE_FP16  // comment out this if want to use FP32
-#define DEVICE 0  // GPU id
+#define USE_FP16 // comment out this if want to use FP32
+#define DEVICE 0 // GPU id
 #define NMS_THRESH 0.5
 #define CONF_THRESH 0.4
 #define BATCH_SIZE 1
@@ -13,12 +13,11 @@
 // stuff we know about the network and the input/output blobs
 static const int INPUT_H = Yolo::INPUT_H;
 static const int INPUT_W = Yolo::INPUT_W;
-static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1;  // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
-const char* INPUT_BLOB_NAME = "data";
-const char* OUTPUT_BLOB_NAME = "prob";
+static const int OUTPUT_SIZE = Yolo::MAX_OUTPUT_BBOX_COUNT * sizeof(Yolo::Detection) / sizeof(float) + 1; // we assume the yololayer outputs no more than 1000 boxes that conf >= 0.1
+const char *INPUT_BLOB_NAME = "data";
+const char *OUTPUT_BLOB_NAME = "prob";
 static Logger gLogger;
 REGISTER_TENSORRT_PLUGIN(YoloPluginCreator);
-
 
 static int get_width(int x, float gw, int divisor = 8)
 {
@@ -29,7 +28,6 @@ static int get_width(int x, float gw, int divisor = 8)
     }
     return (int(x * gw / divisor) + 1) * divisor;
 }
-
 
 static int get_depth(int x, float gd)
 {
@@ -44,18 +42,22 @@ static int get_depth(int x, float gd)
 }
 
 // Creat the engine using only the API and not any parser.
-ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilderConfig* config, DataType dt) {
+ICudaEngine *createEngine(unsigned int maxBatchSize, IBuilder *builder, IBuilderConfig *config, DataType dt)
+{
     std::string wts_name = "";
     float gd = 0.0f, gw = 0.0f;
-    wts_name = "../yolov5s.wts";
-    gd = 0.33;
-    gw = 0.5;
+    // wts_name = "../yolov5s.wts";
+    // gd = 0.33;
+    // gw = 0.5;
 
+    wts_name = "../yolov5l.wts";
+    gd = 1.0;
+    gw = 1.0;
 
-    INetworkDefinition* network = builder->createNetworkV2(0U);
+    INetworkDefinition *network = builder->createNetworkV2(0U);
 
     // Create input tensor of shape {3, INPUT_H, INPUT_W} with name INPUT_BLOB_NAME
-    ITensor* data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
+    ITensor *data = network->addInput(INPUT_BLOB_NAME, dt, Dims3{3, INPUT_H, INPUT_W});
     assert(data);
 
     std::map<std::string, Weights> weightMap = loadWeights(wts_name);
@@ -131,28 +133,29 @@ ICudaEngine* createEngine(unsigned int maxBatchSize, IBuilder* builder, IBuilder
     config->setFlag(BuilderFlag::kFP16);
 #endif
     std::cout << "Building engine, please wait for a while..." << std::endl;
-    ICudaEngine* engine = builder->buildEngineWithConfig(*network, *config);
+    ICudaEngine *engine = builder->buildEngineWithConfig(*network, *config);
     std::cout << "Build engine successfully!" << std::endl;
 
     // Don't need the network any more
     network->destroy();
 
     // Release host memory
-    for (auto& mem : weightMap)
+    for (auto &mem : weightMap)
     {
-        free((void*) (mem.second.values));
+        free((void *)(mem.second.values));
     }
 
     return engine;
 }
 
-void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
+void APIToModel(unsigned int maxBatchSize, IHostMemory **modelStream)
+{
     // Create builder
-    IBuilder* builder = createInferBuilder(gLogger);
-    IBuilderConfig* config = builder->createBuilderConfig();
+    IBuilder *builder = createInferBuilder(gLogger);
+    IBuilderConfig *config = builder->createBuilderConfig();
 
     // Create model to populate the network, then set the outputs and create an engine
-    ICudaEngine* engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
+    ICudaEngine *engine = createEngine(maxBatchSize, builder, config, DataType::kFLOAT);
     assert(engine != nullptr);
 
     // Serialize the engine
@@ -163,13 +166,14 @@ void APIToModel(unsigned int maxBatchSize, IHostMemory** modelStream) {
     builder->destroy();
 }
 
-void doInference(IExecutionContext& context, float* input, float* output, int batchSize) {
-    const ICudaEngine& engine = context.getEngine();
+void doInference(IExecutionContext &context, float *input, float *output, int batchSize)
+{
+    const ICudaEngine &engine = context.getEngine();
 
     // Pointers to input and output device buffers to pass to engine.
     // Engine requires exactly IEngine::getNbBindings() number of buffers.
     assert(engine.getNbBindings() == 2);
-    void* buffers[2];
+    void *buffers[2];
 
     // In order to bind the buffers, we need to know the names of the input and output tensors.
     // Note that indices are guaranteed to be less than IEngine::getNbBindings()
@@ -196,27 +200,33 @@ void doInference(IExecutionContext& context, float* input, float* output, int ba
     CHECK(cudaFree(buffers[outputIndex]));
 }
 
-int main(int argc, char** argv) {
+int main(int argc, char **argv)
+{
     cudaSetDevice(DEVICE);
     // create a model using the API directly and serialize it to a stream
     char *trtModelStream{nullptr};
     size_t size{0};
 
-    if (argc == 2 && std::string(argv[1]) == "-s") {
-        IHostMemory* modelStream{nullptr};
+    if (argc == 2 && std::string(argv[1]) == "-s")
+    {
+        IHostMemory *modelStream{nullptr};
         APIToModel(BATCH_SIZE, &modelStream);
         assert(modelStream != nullptr);
-        std::ofstream p("yolov5s.engine", std::ios::binary);
-        if (!p) {
+        std::ofstream p("yolov5l.engine", std::ios::binary);
+        if (!p)
+        {
             std::cerr << "could not open plan output file" << std::endl;
             return -1;
         }
-        p.write(reinterpret_cast<const char*>(modelStream->data()), modelStream->size());
+        p.write(reinterpret_cast<const char *>(modelStream->data()), modelStream->size());
         modelStream->destroy();
         return 0;
-    } else if (argc == 3 && std::string(argv[1]) == "-d") {
-        std::ifstream file("yolov5s.engine", std::ios::binary);
-        if (file.good()) {
+    }
+    else if (argc == 3 && std::string(argv[1]) == "-d")
+    {
+        std::ifstream file("yolov5l.engine", std::ios::binary);
+        if (file.good())
+        {
             file.seekg(0, file.end);
             size = file.tellg();
             file.seekg(0, file.beg);
@@ -225,15 +235,11 @@ int main(int argc, char** argv) {
             file.read(trtModelStream, size);
             file.close();
         }
-    } else {
-        std::cerr << "arguments not right!" << std::endl;
-        std::cerr << "./yolov5s -s  // serialize model to plan file" << std::endl;
-        std::cerr << "./yolov5s -d ../samples  // deserialize plan file and run inference" << std::endl;
-        return -1;
     }
 
     std::vector<std::string> file_names;
-    if (read_files_in_dir(argv[2], file_names) < 0) {
+    if (read_files_in_dir(argv[2], file_names) < 0)
+    {
         std::cout << "read_files_in_dir failed." << std::endl;
         return -1;
     }
@@ -243,23 +249,28 @@ int main(int argc, char** argv) {
     //for (int i = 0; i < 3 * INPUT_H * INPUT_W; i++)
     //    data[i] = 1.0;
     static float prob[BATCH_SIZE * OUTPUT_SIZE];
-    IRuntime* runtime = createInferRuntime(gLogger);
+    IRuntime *runtime = createInferRuntime(gLogger);
     assert(runtime != nullptr);
-    ICudaEngine* engine = runtime->deserializeCudaEngine(trtModelStream, size);
+    ICudaEngine *engine = runtime->deserializeCudaEngine(trtModelStream, size);
     assert(engine != nullptr);
-    IExecutionContext* context = engine->createExecutionContext();
+    IExecutionContext *context = engine->createExecutionContext();
     assert(context != nullptr);
     delete[] trtModelStream;
 
     int fcount = 0;
-    for (int f = 0; f < (int)file_names.size(); f++) {
+    for (int f = 0; f < (int)file_names.size(); f++)
+    {
         fcount++;
-        if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size()) continue;
-        for (int b = 0; b < fcount; b++) {
+        if (fcount < BATCH_SIZE && f + 1 != (int)file_names.size())
+            continue;
+        for (int b = 0; b < fcount; b++)
+        {
             cv::Mat img = cv::imread(std::string(argv[2]) + "/" + file_names[f - fcount + 1 + b]);
-            if (img.empty()) continue;
+            if (img.empty())
+                continue;
             cv::Mat pr_img = preprocess_img(img);
-            for (int i = 0; i < INPUT_H * INPUT_W; i++) {
+            for (int i = 0; i < INPUT_H * INPUT_W; i++)
+            {
                 data[b * 3 * INPUT_H * INPUT_W + i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
                 data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
                 data[b * 3 * INPUT_H * INPUT_W + i + 2 * INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[0] / 255.0;
@@ -272,15 +283,18 @@ int main(int argc, char** argv) {
         auto end = std::chrono::system_clock::now();
         std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
-        for (int b = 0; b < fcount; b++) {
-            auto& res = batch_res[b];
+        for (int b = 0; b < fcount; b++)
+        {
+            auto &res = batch_res[b];
             nms(res, &prob[b * OUTPUT_SIZE], CONF_THRESH, NMS_THRESH);
         }
-        for (int b = 0; b < fcount; b++) {
-            auto& res = batch_res[b];
+        for (int b = 0; b < fcount; b++)
+        {
+            auto &res = batch_res[b];
             //std::cout << res.size() << std::endl;
             cv::Mat img = cv::imread(std::string(argv[2]) + "/" + file_names[f - fcount + 1 + b]);
-            for (size_t j = 0; j < res.size(); j++) {
+            for (size_t j = 0; j < res.size(); j++)
+            {
                 cv::Rect r = get_rect(img, res[j].bbox);
                 cv::rectangle(img, r, cv::Scalar(0x27, 0xC1, 0x36), 2);
                 cv::putText(img, std::to_string((int)res[j].class_id), cv::Point(r.x, r.y - 1), cv::FONT_HERSHEY_PLAIN, 1.2, cv::Scalar(0xFF, 0xFF, 0xFF), 2);
