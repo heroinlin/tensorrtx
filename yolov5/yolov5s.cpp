@@ -3,6 +3,7 @@
 #include "cuda_runtime_api.h"
 #include "logging.h"
 #include "common.hpp"
+#include "time_utility.h"
 
 #define USE_FP16  // comment out this if want to use FP32
 #define DEVICE 0  // GPU id
@@ -259,6 +260,7 @@ int main(int argc, char** argv) {
             cv::Mat img = cv::imread(std::string(argv[2]) + "/" + file_names[f - fcount + 1 + b]);
             if (img.empty()) continue;
             cv::Mat pr_img = preprocess_img(img);
+            evaluate_time(preprocess_img(img);, "preprocess time: ", 100);
             for (int i = 0; i < INPUT_H * INPUT_W; i++) {
                 data[b * 3 * INPUT_H * INPUT_W + i] = pr_img.at<cv::Vec3b>(i)[2] / 255.0;
                 data[b * 3 * INPUT_H * INPUT_W + i + INPUT_H * INPUT_W] = pr_img.at<cv::Vec3b>(i)[1] / 255.0;
@@ -267,14 +269,15 @@ int main(int argc, char** argv) {
         }
 
         // Run inference
-        auto start = std::chrono::system_clock::now();
+        // auto start = std::chrono::system_clock::now();
         doInference(*context, data, prob, BATCH_SIZE);
-        auto end = std::chrono::system_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
+        evaluate_time(doInference(*context, data, prob, BATCH_SIZE);, "inference time: ", 100);
+        // auto end = std::chrono::system_clock::now();
+        // std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(end - start).count() << "ms" << std::endl;
         std::vector<std::vector<Yolo::Detection>> batch_res(fcount);
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];
-            nms(res, &prob[b * OUTPUT_SIZE], CONF_THRESH, NMS_THRESH);
+            evaluate_time(nms(res, &prob[b * OUTPUT_SIZE], CONF_THRESH, NMS_THRESH);, "nms time: ", 100);
         }
         for (int b = 0; b < fcount; b++) {
             auto& res = batch_res[b];

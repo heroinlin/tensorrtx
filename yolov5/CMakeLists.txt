@@ -11,7 +11,7 @@ set(TensorRT_version 7.2.2.3)
 set(cuda_version 10.2)
 set(cudnn_version 8.0.5.39)
 set(version ${TensorRT_version}_cu${cuda_version})
-set(workroot /home/heroin)
+set(workroot /home/linjian)
 set(tensorRT_root ${workroot}/softwares/TensorRT/TensorRT-${version})
 set(CUDA_BIN_PATH ${workroot}/softwares/cuda-${cuda_version})
 set(CUDA_TOOLKIT_ROOT_DIR ${workroot}/softwares/cuda-${cuda_version})
@@ -40,13 +40,16 @@ target_link_libraries(myplugins nvinfer cudart)
 
 
 # opencv
-set(OPENCV_PATH /home/heroin/thirdpartys/opencv/opencv-4.5.1)
+set(OPENCV_PATH /home/linjian/thirdpartys/opencv/opencv-4.5.1)
 set(OPENCV_3RDPARTY_LIB_PATH ${OPENCV_PATH}/lib/opencv4/3rdparty)
 include_directories(${OPENCV_PATH}/include/opencv4)
 set(OpenCV_LIBS ${OPENCV_PATH}/lib/libopencv_dnn.so ${OPENCV_PATH}/lib/libopencv_highgui.so ${OPENCV_PATH}/lib/libopencv_imgproc.so ${OPENCV_PATH}/lib/libopencv_core.so ${OPENCV_PATH}/lib/libopencv_imgcodecs.so)
 
-
-add_executable(yolov5 ${PROJECT_SOURCE_DIR}/yolov5s.cpp)
+#source directory源文件目录
+file(GLOB SRC ${CMAKE_CURRENT_LIST_DIR}/*.h ${CMAKE_CURRENT_LIST_DIR}/*.hpp
+                    ${CMAKE_CURRENT_LIST_DIR}/yolov5l.cpp ${CMAKE_CURRENT_LIST_DIR}/time_utility.cpp)
+set(COMPILE_CODE ${SRC})
+add_executable(yolov5 ${COMPILE_CODE})
 target_link_libraries(yolov5 nvinfer)
 target_link_libraries(yolov5 cudart)
 target_link_libraries(yolov5 myplugins)
